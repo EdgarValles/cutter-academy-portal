@@ -1,0 +1,22 @@
+# Levanta el portal y MongoDB juntos:  ADMIN_PASSWORD=tu-clave docker compose up -d
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - datos-mongo:/data/db   # aquí viven los datos; respáldalo
+  portal:
+    build: .
+    restart: unless-stopped
+    depends_on: [mongo]
+    ports:
+      - "3000:3000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: cutter_academy
+      ADMIN_USUARIO: ${ADMIN_USUARIO:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Define ADMIN_PASSWORD (minimo 8 caracteres)}
+      COOKIE_SEGURA: ${COOKIE_SEGURA:-0}
+      PROXY: ${PROXY:-0}
+volumes:
+  datos-mongo:

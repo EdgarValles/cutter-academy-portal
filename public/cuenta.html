@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head><title>Cuenta · Cutter Academy</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="logo.jpg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Michroma&display=swap"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="extra.css"></head>
+<body>
+<main class="pagina">
+  <div class="head"><div><h1>Cuenta</h1><div class="sub" id="quien"></div></div><div class="row"><a class="btn" href="./">← Volver al portal</a><button id="salir">Cerrar sesión</button></div></div>
+  <form class="panel" id="fClave"><h3>Cambiar mi contraseña</h3><div class="form">
+    <label class="f">Contraseña actual<input type="password" id="actual" autocomplete="current-password" required></label>
+    <label class="f">Nueva contraseña (mínimo 8 caracteres)<input type="password" id="nueva" autocomplete="new-password" minlength="8" required></label>
+    <div style="align-self:end"><button class="pri">Cambiar contraseña</button></div></div><div class="err" id="errClave"></div></form>
+  <section id="admin" hidden>
+    <form class="panel" id="fNuevo"><h3>Nuevo usuario</h3><div class="form">
+      <label class="f">Nombre<input id="nNombre" required></label>
+      <label class="f">Usuario<input id="nUsuario" autocomplete="off" required></label>
+      <label class="f">Contraseña inicial<input type="password" id="nClave" autocomplete="new-password" minlength="8" required></label>
+      <label class="f">Rol<select id="nRol"><option value="personal">Personal (opera: clientes, cobros, asistencia)</option><option value="admin">Administrador (además catálogos, precios y usuarios)</option></select></label>
+      <div style="align-self:end"><button class="pri">Crear usuario</button></div></div><div class="err" id="errNuevo"></div></form>
+    <div class="panel" style="margin-top:20px"><h3>Usuarios</h3><div class="scroll"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody id="lista"></tbody></table></div><div class="err" id="errLista"></div></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="cuenta.js"></script>
+</body>
+</html>

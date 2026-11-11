@@ -1,0 +1,17 @@
+{
+  "name": "cutter-academy-portal",
+  "version": "1.0.0",
+  "description": "Portal de administración de Cutter Academy by Gallo Gardea (Node.js + MongoDB)",
+  "main": "servidor.js",
+  "private": true,
+  "engines": { "node": ">=22.9" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env servidor.js",
+    "demo": "node servidor.js --demo",
+    "test": "node --test pruebas/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "mongodb": "^6.22.0"
+  }
+}
