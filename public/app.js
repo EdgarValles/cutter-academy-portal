@@ -24,7 +24,7 @@ const ESTADOS = {
 const chip = (e) => { const [c, t] = ESTADOS[e] || ['off', e]; return `<span class="chip ${c}">${esc(t)}</span>`; };
 
 // ---------- Estado ----------
-const COLS = ['areas', 'tiposCliente', 'conceptos', 'precios', 'equipos', 'entrenadores', 'formasPago', 'recursos', 'clientes', 'membresias', 'cargos', 'pagos', 'clases', 'reservaciones', 'pedidos', 'config'];
+const COLS = ['areas', 'tiposCliente', 'conceptos', 'precios', 'equipos', 'entrenadores', 'formasPago', 'recursos', 'clientes', 'membresias', 'cargos', 'pagos', 'clases', 'reservaciones', 'pedidos', 'rutinas', 'config'];
 const S = { asistencias: [], dias: {} };
 COLS.forEach((c) => { S[c] = []; });
 let db = null, user = null, descargas = null;
@@ -32,9 +32,9 @@ let me = { id: null, name: '' };
 let perfiles = {};
 const ui = { ruta: 'tablero', cargado: false, lento: false, error: null, soloLectura: false, clienteId: null, q: '', fTipo: '', fActivo: '1',
   fEstado: '', fArea: '', cobrosTab: 'cargos', qCobros: '', corteFecha: hoy(), asisFecha: hoy(), resFecha: hoy(),
-  repDesde: hoy().slice(0, 8) + '01', repHasta: hoy(), cat: 'conceptos', tEquipo: '', tPend: '', pedidoId: null };
+  repDesde: hoy().slice(0, 8) + '01', repHasta: hoy(), rutFecha: hoy(), cat: 'conceptos', tEquipo: '', tPend: '', pedidoId: null };
 const RUTAS = [['tablero', 'Tablero'], ['clientes', 'Clientes'], ['membresias', 'Membresías'], ['cobros', 'Cobros'], ['adeudos', 'Adeudos y corte'],
-  ['asistencia', 'Asistencia'], ['horarios', 'Horarios'], ['tallas', 'Tallas'], ['pedidos', 'Pedidos'], ['reportes', 'Reportes'], ['catalogos', 'Catálogos']];
+  ['asistencia', 'Asistencia'], ['horarios', 'Horarios'], ['rutinas', 'Rutinas'], ['tallas', 'Tallas'], ['pedidos', 'Pedidos'], ['reportes', 'Reportes'], ['catalogos', 'Catálogos']];
 // Uniformes de equipos: prendas y tallas sugeridas (se puede escribir otra, p. ej. 7 1/4).
 const PRENDAS = [['cachucha', 'Cachucha'], ['jersey', 'Jersey'], ['pantalonera', 'Pantalonera']];
 const TALLAS = ['XCH', 'CH', 'M', 'G', 'XG', 'XXG'];
@@ -297,6 +297,17 @@ const VISTAS = {
       ${tabla(['Horario', 'Recurso', 'Cliente o grupo', 'Entrenador', 'Notas', 'Estado', ''], res.map((r) => `<tr><td>${esc(r.inicio)}–${esc(r.fin)}</td><td>${esc(nom('recursos', r.recursoId))}</td><td>${grupoDe(r) ? `<span class="chip info">Equipo o grupo</span> ${esc(grupoDe(r))}${r.contacto || r.telefono ? `<div class="muted small">${esc([r.contacto, r.telefono].filter(Boolean).join(' · '))}</div>` : ''}` : esc(nom('clientes', r.clienteId))}</td><td>${esc(nom('entrenadores', r.entrenadorId))}</td><td>${esc(r.notas || '')}</td><td>${r.estado === 'cancelada' ? chip('cancelada') : '<span class="chip ok">Confirmada</span>'}</td><td class="n">${r.estado === 'cancelada' ? '' : `<button class="mini danger" data-a="motivo" data-tipo="reserva" data-id="${r.id}">Cancelar</button>`}</td></tr>`), 'Sin reservaciones para ese día.')}</div>`;
   },
 
+  rutinas() {
+    const f = ui.rutFecha || hoy();
+    const dia = DIAS[(new Date(`${f}T12:00:00Z`).getUTCDay() + 6) % 7];
+    return cabeza('Rutinas', `${dia}, ${fecha(f)}${f === hoy() ? ' (hoy)' : ''}`, `<button data-a="rutDia" data-n="-1">Día anterior</button><input type="date" id="rutFecha" data-ui="rutFecha" value="${f}" style="width:auto" aria-label="Fecha de las rutinas"><button data-a="rutDia" data-n="1">Día siguiente</button>`)
+      + `<div class="cols rut">${R.TIPOS_RUTINA.map(([t, n]) => {
+        const r = by('rutinas', R.idRutina(f, t)), hay = r && (r.texto || '').trim();
+        return `<div class="panel"><div class="head"><h3>${n}</h3><button class="mini" data-a="rutinaForm" data-tipo="${t}">${hay ? 'Editar' : 'Capturar rutina'}</button></div>${hay ? `${r.titulo ? `<b>${esc(r.titulo)}</b>` : ''}<div class="rutina-txt">${esc(r.texto)}</div>` : '<div class="empty">Sin rutina para este día.</div>'}</div>`;
+      }).join('')}</div>
+      <div class="note info">Los socios ven las rutinas de hoy, sin contraseña, en la <a href="rutina.html" target="_blank" rel="noopener">pantalla de socios</a>. Las de otros días solo se ven aquí.</div>`;
+  },
+
   reportes() {
     const d = ui.repDesde, h = ui.repHasta;
     const ing = R.ingresos(S.pagos, S.cargos, S.clientes, d, h);
@@ -530,6 +541,18 @@ const A = {
       <label class="f full">Motivo<input name="motivo" id="m-motivo" required></label><div class="full">${pie('Confirmar')}</div></form>`);
   },
   async reactivar(d) { await parchar('membresias', d.id, { estadoManual: '', motivo: '' }); toast('Membresía reactivada.'); },
+
+  rutDia(d) { ui.rutFecha = R.addDias(ui.rutFecha || hoy(), Number(d.n)); render(); },
+  rutinaForm(d) {
+    const f = ui.rutFecha || hoy(), r = by('rutinas', R.idRutina(f, d.tipo)) || {};
+    const previas = S.rutinas.filter((x) => x.tipo === d.tipo && x.fecha !== f && (x.texto || '').trim()).sort((a, b) => (a.fecha < b.fecha ? 1 : -1)).slice(0, 30);
+    modal(`${esc((R.TIPOS_RUTINA.find(([t]) => t === d.tipo) || [])[1])}, ${fecha(f)}`, `<form data-form="rutina" class="form"><input type="hidden" name="fecha" value="${f}"><input type="hidden" name="tipo" value="${esc(d.tipo)}">
+      ${previas.length ? `<label class="f full">Copiar de otro día<select id="ru-copia"><option value="">No copiar</option>${previas.map((x) => `<option value="${x.id}">${fecha(x.fecha)}${x.titulo ? `: ${esc(x.titulo)}` : ''}</option>`).join('')}</select></label>` : ''}
+      <label class="f full">Título (opcional)<input name="titulo" id="ru-titulo" maxlength="80" value="${esc(r.titulo || '')}" placeholder="Ej. Pierna y glúteo"></label>
+      <label class="f full">Rutina<textarea name="texto" id="ru-texto" rows="14" maxlength="4000" placeholder="Un ejercicio por renglón, por ejemplo:&#10;Sentadilla 4 x 10&#10;Peso muerto 3 x 8">${esc(r.texto || '')}</textarea></label>
+      <div class="full muted small">Se guarda para este día. Para quitarla, borra el texto y guarda.</div>
+      <div class="full">${pie('Guardar rutina')}</div></form>`);
+  },
 
   claseForm(d) {
     const c = by('clases', d.id) || { dia: 0, inicio: '07:00', fin: '08:00' };
@@ -777,6 +800,11 @@ const F = {
     cerrar();
   },
 
+  async rutina(f) {
+    const v = val(f), titulo = v.titulo.trim(), texto = v.texto.replace(/\r\n/g, '\n').trimEnd();
+    await guardar('rutinas', R.idRutina(v.fecha, v.tipo), { fecha: v.fecha, tipo: v.tipo, titulo: texto ? titulo : '', texto });
+    cerrar(); toast(texto ? 'Rutina guardada.' : 'Rutina quitada.');
+  },
   async clase(f) {
     const v = val(f); v.activo = f.activo.checked; v.dia = Number(v.dia);
     if (v.fin <= v.inicio) throw new Error('La hora de término debe ser posterior al inicio.');
@@ -912,6 +940,7 @@ document.addEventListener('submit', async (ev) => {
 document.addEventListener('input', (ev) => {
   const t = ev.target;
   if (t.dataset.ui) { ui[t.dataset.ui] = t.value; render(); return; }
+  if (t.id === 'ru-copia') { const r = by('rutinas', t.value); if (r) { $('#ru-titulo').value = r.titulo || ''; $('#ru-texto').value = r.texto || ''; } return; }
   const f = t.closest('form[data-form="venta"]');
   if (f) { if (t.name === 'monto') f.dataset.auto = '0'; else actualizaVenta(); }
 });

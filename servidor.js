@@ -3,8 +3,9 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const R = require('./public/rules.js');
 
-const OPERACION = ['clientes', 'membresias', 'cargos', 'pagos', 'clases', 'reservaciones', 'asistenciasDia', 'pedidos'];
+const OPERACION = ['clientes', 'membresias', 'cargos', 'pagos', 'clases', 'reservaciones', 'asistenciasDia', 'pedidos', 'rutinas'];
 const CATALOGOS = ['areas', 'tiposCliente', 'conceptos', 'precios', 'equipos', 'entrenadores', 'formasPago', 'recursos', 'config'];
 const COLECCIONES = [...OPERACION, ...CATALOGOS];
 const ID_OK = /^[A-Za-z0-9_\-~:@+][A-Za-z0-9_\-.~:@+]{0,99}$/;
@@ -13,6 +14,13 @@ const CONTABLES = ['cargos', 'pagos']; // una vez registrados no se modifican: s
 const CANCELACION = ['cancelado', 'motivoCancelacion', 'canceladoPor', 'canceladoEl'];
 const FECHA_OK = /^\d{4}-\d{2}-\d{2}$/;
 const entero = (v, min = 0) => Number.isInteger(v) && v >= min;
+// Colecciones que crecen cada día: al portal solo se mandan las más recientes (el id empieza con la fecha).
+const RECIENTES = { asistenciasDia: 180, rutinas: 600 };
+const ZONA = 'America/Mexico_City';
+const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: ZONA }).format(new Date());
+// Frase del día para la pantalla de socios: la lista se recorre en orden, una por día, y vuelve a empezar al terminar.
+const FRASES = JSON.parse(fs.readFileSync(path.join(__dirname, 'frases-del-dia.json'), 'utf8'));
+const fraseDe = (fecha) => FRASES[((R.diasEntre('2026-01-01', fecha) % FRASES.length) + FRASES.length) % FRASES.length] || '';
 
 // ---- Contraseñas (scrypt, sin dependencias nativas) ----
 function cifrar(password) {
@@ -34,6 +42,12 @@ function datosValidos(v, nivel = 0) {
   if (Array.isArray(v)) return v.every((x) => datosValidos(x, nivel + 1));
   if (v && typeof v === 'object') return Object.entries(v).every(([k, x]) => k && !k.startsWith('$') && !k.includes('.') && !k.includes('\0') && !LLAVES_PROHIBIDAS.includes(k) && datosValidos(x, nivel + 1));
   return ['string', 'number', 'boolean'].includes(typeof v) || v === null;
+}
+
+function errorRutina(d, id) {
+  if (!FECHA_OK.test(d.fecha) || !R.TIPOS_RUTINA.some(([t]) => t === d.tipo) || id !== R.idRutina(d.fecha, d.tipo)) return 'La rutina no tiene fecha o tipo válidos.';
+  if (typeof d.texto !== 'string' || d.texto.length > 4000 || typeof d.titulo !== 'string' || d.titulo.length > 80) return 'La rutina admite hasta 4000 caracteres y el título hasta 80.';
+  return '';
 }
 
 function errorMembresia(d) {
@@ -112,7 +126,7 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
   app.get('/api/nombres', autenticar, async (req, res) => res.json(Object.fromEntries((await almacen.listar('usuarios')).map((u) => [u.id, u.nombre]))));
   app.get('/api/datos', autenticar, async (req, res) => {
     const cols = {};
-    for (const col of COLECCIONES) cols[col] = await almacen.listar(col, col === 'asistenciasDia' ? { limite: 180, descendente: true } : {});
+    for (const col of COLECCIONES) cols[col] = await almacen.listar(col, RECIENTES[col] ? { limite: RECIENTES[col], descendente: true } : {});
     res.json({ cols });
   });
 
@@ -127,8 +141,9 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
   }
   // Reglas que no pueden depender del navegador: importes, saldos y sesiones. Devuelven el mensaje de error o ''.
   const pagadoDe = async (cargoId) => (await almacen.listar('pagos', { filtro: { cargoId } })).filter((p) => !p.cancelado).reduce((s, p) => s + p.monto, 0);
-  async function errorDeAlta(col, d) {
+  async function errorDeAlta(col, d, id) {
     if (col === 'membresias') return errorMembresia(d);
+    if (col === 'rutinas') return errorRutina(d, id);
     if (col === 'cargos') {
       const descuento = d.descuento ?? 0;
       if (!entero(d.folio, 1) || !FECHA_OK.test(d.fecha) || !entero(d.precioLista) || !entero(descuento) || descuento > d.precioLista || d.total !== d.precioLista - descuento) return 'El cargo tiene folio, fecha o importes no válidos.';
@@ -150,7 +165,7 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
       if (previo) return res.status(403).json({ error: 'Los cargos y pagos registrados no se modifican: cancélalo y regístralo de nuevo.' });
       CANCELACION.forEach((k) => delete req.body[k]); req.body.cancelado = false;
     }
-    const error = await errorDeAlta(col, req.body);
+    const error = await errorDeAlta(col, req.body, id);
     if (error) return res.status(400).json({ error });
     // La autoría la fija el servidor: no se puede falsear ni cambiar después.
     const datos = { ...req.body, creadoPor: previo ? previo.creadoPor || '' : req.usuario.id, creado: previo ? previo.creado || '' : new Date().toISOString() };
@@ -161,6 +176,7 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
     const { col, id } = req.params;
     delete req.body.creadoPor; delete req.body.creado;
     if (col === 'membresias' && errorMembresia(req.body)) return res.status(400).json({ error: errorMembresia(req.body) });
+    if (col === 'rutinas') return res.status(400).json({ error: 'La rutina se guarda completa.' });
     if (CONTABLES.includes(col)) {
       const motivo = typeof req.body.motivoCancelacion === 'string' ? req.body.motivoCancelacion.trim() : '';
       if (Object.keys(req.body).some((k) => !CANCELACION.includes(k)) || req.body.cancelado !== true || !motivo) return res.status(400).json({ error: 'Un cargo o pago solo se puede cancelar, y con motivo.' });
@@ -187,6 +203,16 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
     if (!doc) return (await almacen.obtener('membresias', req.params.id)) ? res.status(400).json({ error: 'Esta membresía ya no tiene sesiones disponibles.' }) : res.status(404).json({ error: 'La membresía no existe.' });
     const { id, ...datos } = doc;
     avisar('membresias', id, datos); res.json({ ok: true });
+  });
+
+  // ---- Pantalla de socios: las rutinas de hoy, sin sesión. Solo hoy y solo título y texto. ----
+  app.get('/api/publico/rutinas', async (req, res) => {
+    const fecha = hoy(), rutinas = [];
+    for (const [tipo, nombre] of R.TIPOS_RUTINA) {
+      const r = await almacen.obtener('rutinas', R.idRutina(fecha, tipo)) || {};
+      rutinas.push({ tipo, nombre, titulo: r.titulo || '', texto: r.texto || '' });
+    }
+    res.set('Cache-Control', 'no-store').json({ fecha, frase: fraseDe(fecha), rutinas });
   });
 
   // ---- Usuarios ----
@@ -260,4 +286,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((err) => { console.error(err.message); process.exit(1); });
-module.exports = { crearApp, preparar, datosValidos, cifrar, coincide };
+module.exports = { crearApp, preparar, datosValidos, cifrar, coincide, hoy, fraseDe };

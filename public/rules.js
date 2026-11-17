@@ -159,7 +159,11 @@ const R = (function () {
     return e;
   }
 
-  return { GENERAL, CREA_MEMBRESIA, addDias, diasEntre, precioDe, finVigencia, inicioRenovacion, estadoMembresia, daAcceso,
+  // Rutinas del día: una por fecha y tipo; el id las hace únicas (2026-11-13_cross).
+  const TIPOS_RUTINA = [['gym-hombres', 'GYM Hombres'], ['gym-mujeres', 'GYM Mujeres'], ['cross', 'Cross'], ['drills-pitchers', 'Drills Pitchers']];
+  const idRutina = (fecha, tipo) => `${fecha}_${tipo}`;
+
+  return { GENERAL, CREA_MEMBRESIA, TIPOS_RUTINA, idRutina, addDias, diasEntre, precioDe, finVigencia, inicioRenovacion, estadoMembresia, daAcceso,
     totalCargo, pagadoDe, saldoCargo, estadoCargo, montoPatrocinado, adeudos, validarEntrada, corteCaja, ingresos,
     patrocinioPeriodo, traslapes, edad };
 })();

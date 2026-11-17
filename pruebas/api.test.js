@@ -185,3 +185,27 @@ test('un fallo de la base responde 500 y el servidor sigue atendiendo', async ()
     assert.equal((await fetch(url + '/login.html')).status, 200);
   } finally { console.error = error; s.closeAllConnections(); s.close(); }
 });
+test('rutinas: una por fecha y tipo, el personal las captura y los socios solo ven las de hoy', async () => {
+  const { hoy } = require('../servidor.js');
+  await pedir('POST', '/api/usuarios', { nombre: 'Coach', usuario: 'coach', password: 'coachcoach1', rol: 'personal' }, admin);
+  const coach = (await pedir('POST', '/api/login', { usuario: 'coach', password: 'coachcoach1' })).cookie;
+  const h = hoy(), r = { fecha: h, tipo: 'cross', titulo: 'WOD', texto: '21-15-9\nThrusters' };
+  assert.equal((await pedir('PUT', `/api/doc/rutinas/${h}_cross`, r, coach)).status, 200);
+  assert.equal((await pedir('PUT', `/api/doc/rutinas/${h}_gym-hombres`, r, coach)).status, 400); // el id no corresponde al tipo
+  assert.equal((await pedir('PUT', `/api/doc/rutinas/${h}_yoga`, { ...r, tipo: 'yoga' }, coach)).status, 400);
+  assert.equal((await pedir('PUT', `/api/doc/rutinas/${h}_cross`, { ...r, texto: 'x'.repeat(4001) }, coach)).status, 400);
+  assert.equal((await pedir('PATCH', `/api/doc/rutinas/${h}_cross`, { texto: 'otro' }, coach)).status, 400);
+  await pedir('PUT', '/api/doc/rutinas/2020-01-01_cross', { ...r, fecha: '2020-01-01', texto: 'vieja' }, coach);
+  const pub = await pedir('GET', '/api/publico/rutinas'); // sin sesión
+  assert.equal(pub.status, 200);
+  assert.equal(pub.json.fecha, h);
+  const { fraseDe } = require('../servidor.js'), frases = require('../frases-del-dia.json');
+  assert.equal(pub.json.frase, fraseDe(h));
+  assert.ok(frases.includes(pub.json.frase) && new Set(frases).size === frases.length);
+  assert.notEqual(fraseDe('2026-11-13'), fraseDe('2026-11-14')); // cambia cada día
+  assert.ok(frases.includes(fraseDe('2020-02-29'))); // fechas anteriores al inicio de la lista
+  assert.deepEqual(pub.json.rutinas.map((x) => x.tipo), ['gym-hombres', 'gym-mujeres', 'cross', 'drills-pitchers']);
+  assert.deepEqual(pub.json.rutinas[2], { tipo: 'cross', nombre: 'Cross', titulo: 'WOD', texto: '21-15-9\nThrusters' });
+  assert.equal(pub.json.rutinas[0].texto, '');
+  assert.equal((await pedir('GET', '/api/datos', null, coach)).json.cols.rutinas.length, 2);
+});

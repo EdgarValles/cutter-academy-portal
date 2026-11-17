@@ -1,6 +1,6 @@
 # Portal de administración — Cutter Academy by Gallo Gardea
 
-Aplicación web independiente para administrar el gimnasio: clientes, membresías y paquetes, cobros, adeudos y corte de caja, asistencia, horarios y reservaciones, reportes y catálogos. Funciona con **Node.js** y guarda todo en **MongoDB**.
+Aplicación web independiente para administrar el gimnasio: clientes, membresías y paquetes, cobros, adeudos y corte de caja, asistencia, horarios y reservaciones, rutinas del día, reportes y catálogos. Funciona con **Node.js** y guarda todo en **MongoDB**.
 
 ## Requisitos
 
@@ -38,12 +38,22 @@ Se administran en **Cuenta** (enlace en el menú).
 
 | Rol | Puede |
 |---|---|
-| Personal | Clientes, ventas, pagos, cancelaciones con motivo, asistencia, horarios, reportes |
+| Personal | Clientes, ventas, pagos, cancelaciones con motivo, asistencia, horarios, rutinas, reportes |
 | Administrador | Todo lo anterior, más catálogos, precios, configuración y usuarios |
 
 Cada cargo, pago y entrada guarda quién lo registró; el servidor asigna ese dato y los folios, no el navegador.
 
 Un cargo o pago ya registrado no se modifica ni se reactiva, sin importar el rol: se cancela con motivo y se registra de nuevo. El servidor también revisa importes, saldo del cargo y sesiones disponibles.
+
+## Rutinas del día
+
+En **Rutinas** el coach captura, por fecha, la rutina de cada tipo: GYM Hombres, GYM Mujeres, Cross y Drills Pitchers. Es texto libre con un título opcional, y se puede copiar la de otro día como base.
+
+Los socios ven las rutinas de hoy en `http://IP-DEL-SERVIDOR:3000/rutina.html`, sin usuario ni contraseña. Sirve para una pantalla del gimnasio o para el celular, y se actualiza sola cada minuto. Esa página solo muestra las rutinas de hoy; las de otros días no salen del portal.
+
+Esa pantalla abre con una frase motivacional que cambia cada día. Las frases están en `frases-del-dia.json` (una por renglón, se recorren en orden y vuelven a empezar); puedes editar la lista y reiniciar el servidor.
+
+Los tipos de rutina están en `public/rules.js` (`TIPOS_RUTINA`).
 
 ## Uso en varios equipos
 
@@ -70,10 +80,12 @@ Programa un respaldo diario; el portal no los hace solo.
 | `almacen-mongo.js` | Acceso a MongoDB (una colección por catálogo o tipo de registro) |
 | `almacen-memoria.js` | Almacén en memoria para pruebas y modo demostración |
 | `catalogos-iniciales.json` | Catálogos de ejemplo del primer arranque |
+| `frases-del-dia.json` | Frases motivacionales de la pantalla de socios |
 | `public/rules.js` | Reglas de negocio: precios, vigencias, saldos, entradas, corte |
 | `public/app.js` | Pantallas del portal |
 | `public/datos.js` | Conexión de la página con el servidor |
 | `public/cuenta.html` | Contraseña y administración de usuarios |
+| `public/rutina.html` | Pantalla de socios con las rutinas de hoy (sin sesión) |
 | `pruebas/` | Pruebas automáticas (`npm test`) |
 
 ## Limitaciones conocidas
@@ -81,4 +93,5 @@ Programa un respaldo diario; el portal no los hace solo.
 - No cobra con tarjeta en línea ni emite facturas (CFDI); solo registra pagos.
 - Los avisos en tiempo real suponen un solo proceso del servidor (no varios en paralelo).
 - El reporte de asistencia cubre los últimos 180 días con registro.
+- El portal carga las 600 rutinas más recientes (unos 5 meses con los cuatro tipos diarios); las anteriores siguen en la base.
 - La tipografía se carga de Google Fonts; sin internet se usa una fuente del sistema.

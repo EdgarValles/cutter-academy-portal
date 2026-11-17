@@ -7,3 +7,20 @@ body { margin: 0; } [hidden] { display: none !important; } img { max-width: 100%
 .acceso img { width: 100%; border-radius: var(--r); }
 .pagina { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; display: flex; flex-direction: column; gap: 20px; }
 @media (max-width: 860px) { .app { min-height: 0; } .cuenta { padding: 0; } }
+/* Rutinas del día: el texto del coach se muestra con sus renglones. */
+.rutina-txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cols.rut { grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); }
+.pub { max-width: 1800px; margin: 0 auto; padding: clamp(16px, 2.5vw, 40px); display: flex; flex-direction: column; gap: clamp(16px, 2vw, 28px); min-height: 100vh; }
+.pub-head { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.pub-head img { width: clamp(120px, 14vw, 240px); border-radius: var(--r); }
+.pub-head h1 { font-size: clamp(1.2rem, 2.2vw, 2.2rem); }
+.pub-head .sub { color: var(--muted); font-size: clamp(.95rem, 1.3vw, 1.4rem); margin-top: 6px; }
+.pub-frase { margin: 0; padding-left: clamp(12px, 1.2vw, 20px); border-left: 3px solid var(--silver); color: var(--silver); font-size: clamp(1.15rem, 2vw, 2rem); font-weight: 500; line-height: 1.3; text-wrap: balance; max-width: 46ch; }
+.pub-nav { display: none; flex-wrap: wrap; gap: 8px; }
+.pub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.4vw, 24px); flex: 1; align-items: start; }
+.pub-grid .panel { padding: clamp(16px, 1.6vw, 28px); scroll-margin-top: 12px; }
+.pub-grid h2 { font-size: clamp(1rem, 1.35vw, 1.5rem); color: var(--silver); }
+.pub-grid b { font-size: clamp(1rem, 1.25vw, 1.4rem); }
+.pub-grid .rutina-txt { font-size: clamp(1rem, 1.2vw, 1.35rem); line-height: 1.55; }
+@media (max-width: 1100px) { .pub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .pub-grid { grid-template-columns: minmax(0, 1fr); } .pub-nav { display: flex; } }
