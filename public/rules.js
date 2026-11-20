@@ -2,7 +2,7 @@
 // Fechas como 'YYYY-MM-DD'; importes en centavos enteros.
 const R = (function () {
   const GENERAL = 'general';
-  const CREA_MEMBRESIA = ['mensualidad', 'paquete', 'visita'];
+  const CREA_MEMBRESIA = ['mensualidad', 'semanal', 'paquete', 'visita'];
 
   function addDias(fecha, n) {
     const [y, m, d] = fecha.split('-').map(Number);

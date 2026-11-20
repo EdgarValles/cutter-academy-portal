@@ -14,7 +14,7 @@ const pesos = (c) => ((c || 0) / 100).toFixed(2);
 const nid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const CLASES = { mensualidad: 'Mensualidad', visita: 'Visita', paquete: 'Paquete de sesiones', inscripcion: 'Inscripción', renta: 'Renta', personalizado: 'Entrenamiento personalizado', producto: 'Producto' };
+const CLASES = { mensualidad: 'Mensualidad', semanal: 'Semanal', visita: 'Visita', paquete: 'Paquete de sesiones', inscripcion: 'Inscripción', renta: 'Renta', personalizado: 'Entrenamiento personalizado', producto: 'Producto' };
 const ESTADOS = {
   activa: ['ok', 'Activa'], por_vencer: ['warn', 'Por vencer'], vencida: ['bad', 'Vencida'], agotada: ['bad', 'Sin sesiones'],
   suspendida: ['off', 'Suspendida'], cancelada: ['off', 'Cancelada'], programada: ['info', 'Programada'],
@@ -425,7 +425,7 @@ function vistaPedido(p) {
 
 // ---------- Catálogos ----------
 const CAT = {
-  conceptos: { titulo: 'Conceptos de cobro', nota: 'Mensualidad, paquete y visita generan acceso. La vigencia se cuenta en días desde el inicio; las sesiones aplican a paquetes.',
+  conceptos: { titulo: 'Conceptos de cobro', nota: 'Mensualidad, semanal, paquete y visita generan acceso (para semanal usa vigencia de 7 días). La vigencia se cuenta en días desde el inicio; las sesiones aplican a paquetes.',
     campos: [{ k: 'nombre', l: 'Nombre', req: 1 }, { k: 'clase', l: 'Clase', t: 'select', ops: CLASES }, { k: 'areaIds', l: 'Áreas que cubre', t: 'multi', col: 'areas' }, { k: 'vigenciaDias', l: 'Vigencia (días)', t: 'num' }, { k: 'sesiones', l: 'Sesiones', t: 'num' }] },
   tiposCliente: { titulo: 'Tipos de cliente', nota: 'Cada tipo puede tener su propia lista de precios. Los marcados como patrocinados se suman al reporte de patrocinio.',
     campos: [{ k: 'nombre', l: 'Nombre', req: 1 }, { k: 'descripcion', l: 'Descripción' }, { k: 'patrocinado', l: 'Patrocinado', t: 'check' }] },
