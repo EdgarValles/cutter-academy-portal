@@ -147,6 +147,8 @@ async function crearApp(almacen, { cookieSegura = false } = {}) {
     if (col === 'cargos') {
       const descuento = d.descuento ?? 0;
       if (!entero(d.folio, 1) || !FECHA_OK.test(d.fecha) || !entero(d.precioLista) || !entero(descuento) || descuento > d.precioLista || d.total !== d.precioLista - descuento) return 'El cargo tiene folio, fecha o importes no válidos.';
+      if ('cantidad' in d && (!entero(d.cantidad, 1) || d.cantidad > 52)) return 'La cantidad del cargo debe ser un entero de 1 a 52.';
+      if ('precioUnitario' in d && (!entero(d.precioUnitario) || d.precioLista !== d.precioUnitario * (d.cantidad ?? 1))) return 'El importe del cargo no coincide con precio unitario por cantidad.';
       if (typeof d.clienteId !== 'string' || !(await almacen.obtener('clientes', d.clienteId))) return 'El cliente del cargo no existe.';
     }
     if (col === 'pagos') {

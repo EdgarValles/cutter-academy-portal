@@ -71,7 +71,7 @@ const paraQuien = (l) => (l.clienteId ? nom('clientes', l.clienteId) : l.nombre 
 // Cargo vigente con el que se cobró un renglón de pedido (si se canceló, el renglón vuelve a estar sin cobrar).
 const cargoDeLinea = (l) => { const c = l.cargoId && by('cargos', l.cargoId); return c && !c.cancelado ? c : null; };
 // Los cargos de pedidos no llevan concepto del catálogo: se describen con el artículo.
-const conceptoDe = (g) => g.descripcion || nom('conceptos', g.conceptoId);
+const conceptoDe = (g) => g.descripcion || (g.cantidad > 1 ? `${g.cantidad} × ` : '') + nom('conceptos', g.conceptoId);
 const PED = '_pedidos';
 // Una reservación es de un cliente o de un equipo o grupo externo (grupo: su nombre; no son los equipos del catálogo).
 const grupoDe = (r) => r.grupo || (r.equipoId ? nom('equipos', r.equipoId) : '');
@@ -425,7 +425,7 @@ function vistaPedido(p) {
 
 // ---------- Catálogos ----------
 const CAT = {
-  conceptos: { titulo: 'Conceptos de cobro', nota: 'Mensualidad, semanal, paquete y visita generan acceso (para semanal usa vigencia de 7 días). La vigencia se cuenta en días desde el inicio; las sesiones aplican a paquetes.',
+  conceptos: { titulo: 'Conceptos de cobro', nota: 'Mensualidad, semanal, paquete y visita generan acceso (para semanal usa vigencia de 7 días). La vigencia se cuenta en días incluyendo el día de inicio (7 días del lunes al domingo); las sesiones aplican a paquetes.',
     campos: [{ k: 'nombre', l: 'Nombre', req: 1 }, { k: 'clase', l: 'Clase', t: 'select', ops: CLASES }, { k: 'areaIds', l: 'Áreas que cubre', t: 'multi', col: 'areas' }, { k: 'vigenciaDias', l: 'Vigencia (días)', t: 'num' }, { k: 'sesiones', l: 'Sesiones', t: 'num' }] },
   tiposCliente: { titulo: 'Tipos de cliente', nota: 'Cada tipo puede tener su propia lista de precios. Los marcados como patrocinados se suman al reporte de patrocinio.',
     campos: [{ k: 'nombre', l: 'Nombre', req: 1 }, { k: 'descripcion', l: 'Descripción' }, { k: 'patrocinado', l: 'Patrocinado', t: 'check' }] },
@@ -502,6 +502,7 @@ const A = {
     modal('Nueva venta', `<form data-form="venta" class="form">
       <label class="f full">Cliente<select name="clienteId" id="v-cliente" required><option value="">Selecciona…</option>${cl.map((c) => `<option value="${c.id}"${c.id === d.cliente ? ' selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
       <label class="f full">Concepto<select name="conceptoId" id="v-concepto" required><option value="">Selecciona…</option>${opts('conceptos', d.concepto)}</select></label>
+      <label class="f">Cantidad<input type="number" name="cantidad" id="v-cantidad" min="1" max="52" step="1" value="1" required></label>
       <div class="full" id="v-info"></div>
       <label class="f" id="v-inicio-l">Inicio de vigencia<input type="date" name="inicio" id="v-inicio"></label>
       <label class="f">Descuento ($)<input name="descuento" id="v-desc" inputmode="decimal" value="0"></label>
@@ -713,12 +714,18 @@ function actualizaVenta(inicial) {
   const p = R.precioDe(S.precios, co.id, cl.tipoClienteId, h);
   if (!p) { info.innerHTML = `<div class="note bad">Este concepto no tiene precio. Defínelo en Catálogos → Listas de precios.</div>`; return null; }
   const gen = R.precioDe(S.precios, co.id, R.GENERAL, h);
+  const cantidad = Number(f.cantidad.value);
+  const cantOk = Number.isInteger(cantidad) && cantidad >= 1 && cantidad <= 52;
+  const n = cantOk ? cantidad : 1, lista = p.precio * n;
   const desc = Math.max(0, centavos(f.descuento.value));
-  const total = Math.max(0, p.precio - desc);
+  const total = Math.max(0, lista - desc);
+  let vig = [];
+  if (creaM && cantOk) { try { vig = R.vigenciasVenta(co, co.clase === 'visita' ? h : (f.inicio.value || h), n); } catch { vig = []; } }
+  const ultima = vig[vig.length - 1];
   if (f.dataset.auto === '1' || inicial) f.monto.value = pesos(total);
   const tipo = by('tiposCliente', cl.tipoClienteId) || {};
-  info.innerHTML = `<div class="row" style="justify-content:space-between"><div>Lista <b>${esc(tipo.nombre || '')}</b>: ${money(p.precio)}${gen && gen.precio !== p.precio ? ` <span class="muted small">(público general ${money(gen.precio)})</span>` : ''}${creaM && co.clase !== 'visita' ? `<div class="muted small">Vigencia: ${co.vigenciaDias || 0} días${co.sesiones ? `, ${co.sesiones} sesiones` : ''}</div>` : ''}</div><div class="total">Total ${money(total)}</div></div>${p.respaldo ? `<div class="note" style="margin-top:8px">“${esc(tipo.nombre || '')}” no tiene precio propio para este concepto; se aplica el de público general.</div>` : ''}`;
-  return { cl, co, p, gen, desc, total, tipo, creaM };
+  info.innerHTML = `<div class="row" style="justify-content:space-between"><div>Lista <b>${esc(tipo.nombre || '')}</b>: ${money(p.precio)}${n > 1 ? ` × ${n} = ${money(lista)}` : ''}${gen && gen.precio !== p.precio ? ` <span class="muted small">(público general ${money(gen.precio)})</span>` : ''}${creaM && co.clase !== 'visita' ? `<div class="muted small">Vigencia: ${co.vigenciaDias || 0} días${co.sesiones ? `, ${co.sesiones} sesiones` : ''}${ultima ? (co.sesiones ? ` · ${n > 1 ? `${n} paquetes, ` : ''}vence${n > 1 ? 'n' : ''} el ${fecha(ultima.fin)}` : ` · ${n > 1 ? `${n} periodos seguidos, ` : ''}del ${fecha(vig[0].inicio)} al ${fecha(ultima.fin)}`) : ''}</div>` : ''}${!cantOk ? '<div class="note bad">La cantidad debe ser un número entero de 1 a 52.</div>' : ''}</div><div class="total">Total ${money(total)}</div></div>${p.respaldo ? `<div class="note" style="margin-top:8px">“${esc(tipo.nombre || '')}” no tiene precio propio para este concepto; se aplica el de público general.</div>` : ''}`;
+  return { cl, co, p, gen, desc, total, tipo, creaM, cantidad, cantOk, lista };
 }
 
 // ---------- Formularios ----------
@@ -739,19 +746,20 @@ const F = {
   async venta(f) {
     const x = actualizaVenta(); const v = val(f), h = hoy();
     if (!x) throw new Error('Elige cliente y un concepto con precio.');
-    if (x.desc > x.p.precio) throw new Error('El descuento no puede ser mayor al precio.');
+    if (!x.cantOk) throw new Error('La cantidad debe ser un número entero de 1 a 52.');
+    if (x.desc > x.lista) throw new Error('El descuento no puede ser mayor al precio.');
     if (x.desc > 0 && !v.motivoDescuento.trim()) throw new Error('Escribe el motivo del descuento.');
     const monto = centavos(v.monto);
     if (monto < 0 || monto > x.total) throw new Error('El pago no puede ser mayor al total.');
     if (monto > 0 && !v.formaPagoId) throw new Error('Elige la forma de pago.');
-    const total = R.totalCargo(x.p.precio, x.desc);
+    const total = R.totalCargo(x.lista, x.desc);
+    const vigencias = x.creaM ? R.vigenciasVenta(x.co, x.co.clase === 'visita' ? h : (v.inicio || h), x.cantidad) : [];
     const cargoId = nid(), fc = await folio('cargo');
-    await guardar('cargos', cargoId, { folio: fc, clienteId: x.cl.id, conceptoId: x.co.id, fecha: h, precioLista: x.p.precio, precioGeneral: x.gen ? x.gen.precio : x.p.precio,
+    await guardar('cargos', cargoId, { folio: fc, clienteId: x.cl.id, conceptoId: x.co.id, fecha: h, cantidad: x.cantidad, precioUnitario: x.p.precio, precioLista: x.lista, precioGeneral: (x.gen ? x.gen.precio : x.p.precio) * x.cantidad,
       descuento: x.desc, motivoDescuento: v.motivoDescuento.trim(), total, patrocinado: !!x.tipo.patrocinado, areaIds: x.co.areaIds || [], cancelado: false, ...sello() });
-    if (x.creaM) {
-      const inicio = x.co.clase === 'visita' ? h : (v.inicio || h);
-      await guardar('membresias', nid(), { clienteId: x.cl.id, conceptoId: x.co.id, inicio, fin: R.finVigencia(inicio, x.co.clase === 'visita' ? 0 : Number(x.co.vigenciaDias) || 0),
-        sesionesTotales: x.co.clase === 'visita' ? 1 : Number(x.co.sesiones) || 0, sesionesUsadas: 0, estadoManual: '', motivo: '', cargoId, ...sello() });
+    for (const g of vigencias) {
+      await guardar('membresias', nid(), { clienteId: x.cl.id, conceptoId: x.co.id, inicio: g.inicio, fin: g.fin,
+        sesionesTotales: g.sesiones, sesionesUsadas: 0, estadoManual: '', motivo: '', cargoId, ...sello() });
     }
     let pagoId = null;
     if (monto > 0) { pagoId = nid(); await guardar('pagos', pagoId, { folio: await folio('pago'), cargoId, clienteId: x.cl.id, fecha: h, hora: ahora(), monto, formaPagoId: v.formaPagoId, cancelado: false, ...sello() }); }

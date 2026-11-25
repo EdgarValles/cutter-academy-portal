@@ -91,6 +91,9 @@ test('cargos y pagos: el servidor valida importes, cliente y saldo', async () =>
   assert.equal((await pedir('PUT', '/api/doc/cargos/k5', { ...cargo, total: 1 }, personal)).status, 400);
   assert.equal((await pedir('PUT', '/api/doc/cargos/k5', { ...cargo, fecha: 5 }, personal)).status, 400);
   assert.equal((await pedir('PUT', '/api/doc/cargos/k5', { ...cargo, clienteId: 'nadie' }, personal)).status, 400);
+  assert.equal((await pedir('PUT', '/api/doc/cargos/k5', { ...cargo, cantidad: 0 }, personal)).status, 400);
+  assert.equal((await pedir('PUT', '/api/doc/cargos/k5', { ...cargo, cantidad: 3, precioUnitario: 20000 }, personal)).status, 400);
+  assert.equal((await pedir('PUT', '/api/doc/cargos/k6', { ...cargo, folio: 91, cantidad: 2, precioUnitario: 25000 }, personal)).status, 200);
   assert.equal((await pedir('PUT', '/api/doc/cargos/k5', cargo, personal)).status, 200);
   const pago = { folio: 90, cargoId: 'k5', clienteId: 'c5', fecha: '2026-11-10', monto: 20000, formaPagoId: 'efectivo' };
   assert.equal((await pedir('PUT', '/api/doc/pagos/p5', { ...pago, monto: 'mil' }, personal)).status, 400);

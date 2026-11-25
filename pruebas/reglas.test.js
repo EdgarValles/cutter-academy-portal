@@ -31,7 +31,8 @@ test('precio: respaldo a lista general y null si no existe', () => {
 });
 
 test('vigencia y renovación', () => {
-  assert.equal(R.finVigencia('2026-11-10', 30), '2026-12-10');
+  assert.equal(R.finVigencia('2026-11-10', 30), '2026-12-09');
+  assert.equal(R.finVigencia('2026-11-10', 1), '2026-11-10');
   assert.equal(R.finVigencia('2026-11-10', 0), '2026-11-10');
   assert.equal(R.addDias('2026-12-31', 1), '2027-01-01');
   const ms = [{ clienteId: 'c1', conceptoId: 'mens', inicio: '2026-10-20', fin: '2026-11-19' }];
@@ -171,4 +172,20 @@ test('traslapes de reservación y edad', () => {
   assert.equal(R.edad('2010-11-11', '2026-11-10'), 15);
   assert.equal(R.edad('2010-11-10', '2026-11-10'), 16);
   assert.equal(R.edad('', '2026-11-10'), null);
+});
+
+test('venta por cantidad: semanas encadenadas, paquetes y visitas en paralelo', () => {
+  const sem = { clase: 'semanal', vigenciaDias: 7, sesiones: 0 };
+  assert.deepEqual(R.vigenciasVenta(sem, '2026-11-20', 3), [
+    { inicio: '2026-11-20', fin: '2026-11-26', sesiones: 0 },
+    { inicio: '2026-11-27', fin: '2026-12-03', sesiones: 0 },
+    { inicio: '2026-12-04', fin: '2026-12-10', sesiones: 0 },
+  ]);
+  const paq = R.vigenciasVenta({ clase: 'paquete', vigenciaDias: 60, sesiones: 10 }, '2026-11-20', 2);
+  assert.deepEqual(paq.map((v) => v.inicio), ['2026-11-20', '2026-11-20']);
+  assert.equal(paq[0].sesiones, 10);
+  assert.deepEqual(R.vigenciasVenta({ clase: 'visita', vigenciaDias: 30 }, '2026-11-20', 2),
+    [{ inicio: '2026-11-20', fin: '2026-11-20', sesiones: 1 }, { inicio: '2026-11-20', fin: '2026-11-20', sesiones: 1 }]);
+  assert.throws(() => R.vigenciasVenta(sem, '2026-11-20', 0));
+  assert.throws(() => R.vigenciasVenta(sem, '2026-11-20', 1.5));
 });

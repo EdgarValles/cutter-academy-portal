@@ -31,7 +31,9 @@ const R = (function () {
     return null;
   }
 
-  function finVigencia(inicio, vigenciaDias) { return addDias(inicio, vigenciaDias || 0); }
+  // Último día con acceso. El día de inicio cuenta: 7 días desde el 25 terminan el 31 (inclusive).
+  // Con 0 días (visita) vence el mismo día.
+  function finVigencia(inicio, vigenciaDias) { const d = Number(vigenciaDias) || 0; return addDias(inicio, d > 0 ? d - 1 : 0); }
 
   // Inicio propuesto: día siguiente al fin de la membresía vigente del mismo concepto.
   function inicioRenovacion(membresias, clienteId, conceptoId, hoy) {
@@ -39,6 +41,26 @@ const R = (function () {
       .filter((m) => m.clienteId === clienteId && m.conceptoId === conceptoId && m.estadoManual !== 'cancelada' && m.fin >= hoy)
       .map((m) => m.fin).sort();
     return fines.length ? addDias(fines[fines.length - 1], 1) : hoy;
+  }
+
+  // Vigencias que genera vender `cantidad` unidades de un concepto que da acceso.
+  // Mensualidad y semanal se encadenan (cada una inicia el día siguiente al fin de la anterior);
+  // paquetes y visitas inician juntos porque se consumen por sesión.
+  function vigenciasVenta(concepto, inicio, cantidad) {
+    const n = Number(cantidad);
+    if (!Number.isInteger(n) || n < 1) throw new Error('La cantidad debe ser un número entero de 1 en adelante.');
+    const visita = concepto.clase === 'visita';
+    const dias = visita ? 0 : Number(concepto.vigenciaDias) || 0;
+    const sesiones = visita ? 1 : Number(concepto.sesiones) || 0;
+    const encadena = !visita && !sesiones;
+    const res = [];
+    let desde = inicio;
+    for (let i = 0; i < n; i++) {
+      const fin = finVigencia(desde, dias);
+      res.push({ inicio: desde, fin, sesiones });
+      if (encadena) desde = addDias(fin, 1);
+    }
+    return res;
   }
 
   function estadoMembresia(m, hoy, diasAviso) {
@@ -163,7 +185,7 @@ const R = (function () {
   const TIPOS_RUTINA = [['gym-hombres', 'GYM Hombres'], ['gym-mujeres', 'GYM Mujeres'], ['cross', 'Cross'], ['drills-pitchers', 'Drills Pitchers']];
   const idRutina = (fecha, tipo) => `${fecha}_${tipo}`;
 
-  return { GENERAL, CREA_MEMBRESIA, TIPOS_RUTINA, idRutina, addDias, diasEntre, precioDe, finVigencia, inicioRenovacion, estadoMembresia, daAcceso,
+  return { GENERAL, CREA_MEMBRESIA, TIPOS_RUTINA, idRutina, addDias, diasEntre, precioDe, finVigencia, vigenciasVenta, inicioRenovacion, estadoMembresia, daAcceso,
     totalCargo, pagadoDe, saldoCargo, estadoCargo, montoPatrocinado, adeudos, validarEntrada, corteCaja, ingresos,
     patrocinioPeriodo, traslapes, edad };
 })();
